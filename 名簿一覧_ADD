@@ -1,0 +1,450 @@
+// ==UserScript==
+// @name         名簿一覧_ADD
+// @namespace    https://github.com/vrav-github/sougouwiki/
+// @version      1.0
+// @description  女優ページ一覧に追加後ソート
+// @author       vrav
+// @match        https://seesaawiki.jp/w/sougouwiki/e/edit?id=396556
+// @match        https://seesaawiki.jp/w/sougouwiki/e/edit?id=756401
+// @match        https://seesaawiki.jp/w/sougouwiki/e/edit?id=756418
+// @match        https://seesaawiki.jp/w/sougouwiki/e/edit?id=1704513
+// @match        https://seesaawiki.jp/w/sougouwiki/e/edit?id=1704160
+// @match        https://seesaawiki.jp/w/sougouwiki/e/edit?id=1704450
+// @match        https://seesaawiki.jp/w/sougouwiki/e/edit?id=757568
+// @match        https://seesaawiki.jp/w/sougouwiki/e/edit?id=757569
+// @match        https://seesaawiki.jp/w/sougouwiki/e/edit?id=757570
+// ==/UserScript==
+
+//                           <<　はじめに　>>
+//  当スクリプトは入力欄追加によるスペース分の視認性を確保する為、
+//  当wikiの上部とルール欄を非表示にしますのでルール内容を理解していない方は、
+//  スクリプト有効化前にルールをよく読んでください。
+//
+//  　　　　　　　　　　　　　　　　　<<　使い方　>>
+//　女優ページ一覧の編集画面上部にデータ入力欄が表示され、そこでデータを入力し決定ボタンを
+//  押すと自動でソートされます。
+//  メイン編集ボタンから実行してください。
+//  見出し（アドレスにcontentが入る）では動作しません。
+//  まだ見出し(**○○)が作られていない珍しい読みの名前を追加しても見出しを
+//  自動で作成する事は出来ません。
+//  入力欄を使用しなくてもテキストエリアにカーソルがあれば「決定」以外の各種ボタンは使用可能です。
+//
+//  当スクリプトの使用に関しては全て自己責任でお願いします。
+
+(function () {
+    'use strict';
+    // テキスト内の行を、全角括弧内のテキストに基づいてソートする関数
+    const sortLinesWithTextInFullWidthParentheses = (text) => {
+        // テキストを行に分割
+        const lines = text.split('\n');
+        // 全角括弧内のテキストを含む行を抽出
+        const linesWithMatches = lines.filter(line => line.match(/（[^（）]+）/));
+        // 全角括弧内のテキストに基づいて行をソート
+        const sortedLinesWithMatches = linesWithMatches.sort((a, b) => {
+            // 環境依存文字「&#12436;」を「う」と同一に扱う
+            a = a.replace(/&#12436;/g, 'う');
+            b = b.replace(/&#12436;/g, 'う');
+            // 最後の全角括弧内のテキストを抽出
+            const matchA = a.match(/（([^（）]+)）/g).pop().match(/（([^（）]+)）/)[1].replace(/・/g, '');
+            const matchB = b.match(/（([^（）]+)）/g).pop().match(/（([^（）]+)）/)[1].replace(/・/g, '');
+            // 全角括弧内のテキストに基づいて比較
+            return matchA.localeCompare(matchB);
+        });
+        let index = 0;
+        let sortedIndex = 0;
+        // ソートされた行を元のテキストに挿入
+        const sortedLines = lines.map(line => {
+            if (line.match(/（[^（）]+）/)) {
+                return sortedLinesWithMatches[sortedIndex++];
+            } else {
+                if (index === linesWithMatches.length) {
+                    index++;
+                    return line + sortedLinesWithMatches[sortedIndex++];
+                } else {
+                    index++;
+                    return line;
+                }
+            }
+        });
+        // ソートされたテキストを返す
+        return sortedLines.join('\n');
+    };
+    // 入力フォームとボタンを配置するコンテナを作成
+    const container = document.createElement('div');
+    // コンテナを2段にわける
+    const topDiv = document.createElement('div');
+    const bottomDiv = document.createElement('div');
+    // 入力ボタン
+    const button1 = document.createElement('button');
+    button1.textContent = ' [[ ';
+    button1.style.marginRight = '30px';
+    topDiv.appendChild(button1);
+    const button2 = document.createElement('button');
+    button2.textContent = ' ]] ';
+    button2.style.marginRight = '30px';
+    topDiv.appendChild(button2);
+    const button3 = document.createElement('button');
+    button3.textContent = ' [[ ]] ';
+    button3.style.marginRight = '30px';
+    topDiv.appendChild(button3);
+    const button4 = document.createElement('button');
+    button4.textContent = '( ';
+    button4.style.marginRight = '30px';
+    topDiv.appendChild(button4);
+    const button5 = document.createElement('button');
+    button5.textContent = ' )';
+    button5.style.marginRight = '30px';
+    topDiv.appendChild(button5);
+    const button6 = document.createElement('button');
+    button6.textContent = '（）';
+    button6.style.marginRight = '30px';
+    topDiv.appendChild(button6);
+    const button7 = document.createElement('button');
+    button7.textContent = ' ＝ ';
+    button7.style.marginRight = '30px';
+    topDiv.appendChild(button7);
+    const button8 = document.createElement('button');
+    button8.textContent = ' ⇒ ';
+    button8.style.color = 'red';
+    button8.style.marginRight = '300px';
+    topDiv.appendChild(button8);
+    // ラベル
+    const Label1 = document.createElement('label');
+    Label1.textContent = 'データを入力　';
+    bottomDiv.appendChild(Label1);
+    const countLabel = document.createElement('label');
+    countLabel.textContent = '　　　追加人数';
+    topDiv.appendChild(countLabel);
+    // 入力欄
+    const Input = document.createElement('input');
+    Input.type = 'text';
+    Input.style.color = 'blue';
+    Input.style.width = "860px";
+    Input.style.marginRight = '10px';
+    bottomDiv.appendChild(Input);
+    // Enterキーを無効化
+    Input.addEventListener('keydown', function (event) {
+        if (event.keyCode === 13 || event.keyCode === 108) {
+            event.preventDefault();
+        }
+    });
+    // 決定ボタン
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = '決定';
+    bottomDiv.appendChild(button);
+    // テキストエリアを取得
+    const textarea = document.getElementById('content');
+    // インプットを取得
+    const input = document.getElementById('input');
+    // フォーカスがある要素を格納する変数
+    let focusedElement;
+    // テキストエリアにフォーカスがある場合、focusedElementにテキストエリアを設定
+    textarea.addEventListener('focus', () => {
+        focusedElement = textarea;
+    });
+    // 入力フォームにフォーカスがある場合、focusedElementに入力フォームを設定
+    Input.addEventListener('focus', () => {
+        focusedElement = Input;
+    });
+    // ボタンが押された時の処理(ifテキストエリア、elseif入力欄)
+    button1.addEventListener('click', event => {
+        event.preventDefault();
+        if (focusedElement === textarea) {
+            const cursorPosition = textarea.selectionStart;
+            const inputValue = textarea.value;
+            textarea.value = inputValue.slice(0, cursorPosition) + '[[' + inputValue.slice(cursorPosition);
+            textarea.selectionStart = cursorPosition + 2;
+            textarea.selectionEnd = cursorPosition + 2;
+            textarea.focus();
+        } else if (focusedElement === Input) {
+            const cursorPosition = Input.selectionStart;
+            const inputValue = Input.value;
+            Input.value = inputValue.slice(0, cursorPosition) + '[[' + inputValue.slice(cursorPosition);
+            Input.selectionStart = cursorPosition + 2;
+            Input.selectionEnd = cursorPosition + 2;
+            Input.focus();
+        }
+    });
+    button2.addEventListener('click', event => {
+        event.preventDefault();
+        if (focusedElement === textarea) {
+            const cursorPosition = textarea.selectionStart;
+            const inputValue = textarea.value;
+            textarea.value = inputValue.slice(0, cursorPosition) + ']]' + inputValue.slice(cursorPosition);
+            textarea.selectionStart = cursorPosition + 2;
+            textarea.selectionEnd = cursorPosition + 2;
+            textarea.focus();
+        } else if (focusedElement === Input) {
+            const cursorPosition = Input.selectionStart;
+            const inputValue = Input.value;
+            Input.value = inputValue.slice(0, cursorPosition) + ']]' + inputValue.slice(cursorPosition);
+            Input.selectionStart = cursorPosition + 2;
+            Input.selectionEnd = cursorPosition + 2;
+            Input.focus();
+        }
+    });
+    button3.addEventListener('click', event => {
+        event.preventDefault();
+        if (focusedElement === textarea) {
+            const cursorPosition = textarea.selectionStart;
+            const inputValue = textarea.value;
+            textarea.value = inputValue.slice(0, cursorPosition) + '[[]]' + inputValue.slice(cursorPosition);
+            textarea.selectionStart = cursorPosition + 2;
+            textarea.selectionEnd = cursorPosition + 2;
+            textarea.focus();
+        } else if (focusedElement === Input) {
+            const cursorPosition = Input.selectionStart;
+            const inputValue = Input.value;
+            Input.value = inputValue.slice(0, cursorPosition) + '[[]]' + inputValue.slice(cursorPosition);
+            Input.selectionStart = cursorPosition + 2;
+            Input.selectionEnd = cursorPosition + 2;
+            Input.focus();
+        }
+    });
+    button4.addEventListener('click', event => {
+        event.preventDefault();
+        if (focusedElement === textarea) {
+            const cursorPosition = textarea.selectionStart;
+            const inputValue = textarea.value;
+            textarea.value = inputValue.slice(0, cursorPosition) + '（' + inputValue.slice(cursorPosition);
+            textarea.selectionStart = cursorPosition + 1;
+            textarea.selectionEnd = cursorPosition + 1;
+            textarea.focus();
+        } else if (focusedElement === Input) {
+            const cursorPosition = Input.selectionStart;
+            const inputValue = Input.value;
+            Input.value = inputValue.slice(0, cursorPosition) + '（' + inputValue.slice(cursorPosition);
+            Input.selectionStart = cursorPosition + 1;
+            Input.selectionEnd = cursorPosition + 1;
+            Input.focus();
+        }
+    });
+    button5.addEventListener('click', event => {
+        event.preventDefault();
+        if (focusedElement === textarea) {
+            const cursorPosition = textarea.selectionStart;
+            const inputValue = textarea.value;
+            textarea.value = inputValue.slice(0, cursorPosition) + '）' + inputValue.slice(cursorPosition);
+            textarea.selectionStart = cursorPosition + 1;
+            textarea.selectionEnd = cursorPosition + 1;
+            textarea.focus();
+        } else if (focusedElement === Input) {
+            const cursorPosition = Input.selectionStart;
+            const inputValue = Input.value;
+            Input.value = inputValue.slice(0, cursorPosition) + '）' + inputValue.slice(cursorPosition);
+            Input.selectionStart = cursorPosition + 1;
+            Input.selectionEnd = cursorPosition + 1;
+            Input.focus();
+        }
+    });
+    button6.addEventListener('click', event => {
+        event.preventDefault();
+        if (focusedElement === textarea) {
+            const cursorPosition = textarea.selectionStart;
+            const inputValue = textarea.value;
+            textarea.value = inputValue.slice(0, cursorPosition) + '（）' + inputValue.slice(cursorPosition);
+            textarea.selectionStart = cursorPosition + 1;
+            textarea.selectionEnd = cursorPosition + 1;
+            textarea.focus();
+        } else if (focusedElement === Input) {
+            const cursorPosition = Input.selectionStart;
+            const inputValue = Input.value;
+            Input.value = inputValue.slice(0, cursorPosition) + '（）' + inputValue.slice(cursorPosition);
+            Input.selectionStart = cursorPosition + 1;
+            Input.selectionEnd = cursorPosition + 1;
+            Input.focus();
+        }
+    });
+    button7.addEventListener('click', event => {
+        event.preventDefault();
+        if (focusedElement === textarea) {
+            const cursorPosition = textarea.selectionStart;
+            const inputValue = textarea.value;
+            textarea.value = inputValue.slice(0, cursorPosition) + '＝' + inputValue.slice(cursorPosition);
+            textarea.selectionStart = cursorPosition + 1;
+            textarea.selectionEnd = cursorPosition + 1;
+            textarea.focus();
+        } else if (focusedElement === Input) {
+            const cursorPosition = Input.selectionStart;
+            const inputValue = Input.value;
+            Input.value = inputValue.slice(0, cursorPosition) + '＝' + inputValue.slice(cursorPosition);
+            Input.selectionStart = cursorPosition + 1;
+            Input.selectionEnd = cursorPosition + 1;
+            Input.focus();
+        }
+    });
+    button8.addEventListener('click', event => {
+        event.preventDefault();
+        if (focusedElement === textarea) {
+            const cursorPosition = textarea.selectionStart;
+            const inputValue = textarea.value;
+            textarea.value = inputValue.slice(0, cursorPosition) + '&color(#ff0000){\'\'⇒\'\'}' + inputValue.slice(cursorPosition);
+            textarea.selectionStart = cursorPosition + 22;
+            textarea.selectionEnd = cursorPosition + 22;
+            textarea.focus();
+        } else if (focusedElement === Input) {
+            const cursorPosition = Input.selectionStart;
+            const inputValue = Input.value;
+            Input.value = inputValue.slice(0, cursorPosition) + '&color(#ff0000){\'\'⇒\'\'}' + inputValue.slice(cursorPosition);
+            Input.selectionStart = cursorPosition + 22;
+            Input.selectionEnd = cursorPosition + 22;
+            Input.focus();
+        }
+    });
+    // 上部と下部のdivをコンテナに追加します
+    container.appendChild(topDiv);
+    topDiv.style.paddingLeft = '104px';
+    container.appendChild(bottomDiv);
+    // テキストエリアを広げる（フルHDに最適化しているので各自の環境に合わせて style.height を調整して下さい）
+    const maincontainer = document.getElementById("content");
+    maincontainer.style.height = "500px";
+    // テキストエリアの前にコンテナを挿入
+    maincontainer.parentNode.insertBefore(container, maincontainer);
+    // 上部の要素を削除
+    const login = document.querySelector('.login');
+    login.parentNode.removeChild(login);
+    const ruleArea = document.querySelector('#rule-area');
+    ruleArea.parentNode.removeChild(ruleArea);
+    const description = document.querySelector('#wiki-description');
+    description.parentNode.removeChild(description);
+    const header = document.querySelector('#wiki-header');
+    header.parentNode.removeChild(header);
+    // インプットの初期状態
+    Input.value = '-';
+    Input.focus();
+    Input.setSelectionRange(1, 1);
+    // ボタンがクリックされたときの処理
+    let count = 0;
+    button.addEventListener('click', function (event) {
+        event.preventDefault();
+        let popupShown1 = false;
+        let popupShown2 = false;
+        // 中見出し以降は非対応
+        if ((window.location.href.match(/_/g) || []).length >= 2) {
+            alert('このスクリプトは、メイン、大見出しページのみ対応です');
+            return;
+        }
+        // 入力された文字列を取得
+        const inputValue = Input.value;
+        if (!inputValue.startsWith('-')) {
+            if (!alert('先頭に　-　がありません')) {
+                return;
+            }
+        }
+        if (!inputValue.includes('（') || !inputValue.includes('）')) {
+            if (!alert('読み仮名の（　）がありません')) {
+                return;
+            }
+        }
+        if (inputValue.match(/（[^（）]+）[^（）]+（[^（）]+）/)) {
+            if (!alert('（　）が2つの行は手動で入力してください')) {
+                return;
+            }
+        }
+        if (!inputValue.includes('・')) {
+            if (!confirm('読み仮名に　・　がありません。このまま実行してよろしいですか？')) {
+                return;
+            }
+        }
+        // 全角括弧内のテキストを抽出
+        const match = inputValue.match(/（([^（）]+)）/);
+        if (match) {
+            // 全角括弧内のテキストを取得
+            const key = match[1].replace(/・/g, '');
+            // テキストエリアの値を行に分割
+            const lines = textarea.value.split('\n');
+            // 項目外をアラート
+            const linesout = textarea.value.split('\n');
+            const firstLine = linesout.find(line => line.includes('**'));
+            const lastLine = linesout.reverse().find(line => line.includes('**'));
+            if (key < firstLine.replace('**', '')) {
+                alert('読み名が最上位項目より上です。');
+                return;
+            }
+            const lastLineText = lastLine.replace('**', '');
+            // 五十音順に並べた文字列（「ん」を「わ」の前に配置）
+            const gojuon = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん';
+            // 濁音と小書き文字を基音に変換する関数
+            const convertToBaseSound = (text) => {
+                return text
+                    .replace(/[がぎぐげご]/g, 'か')
+                    .replace(/[ざじずぜぞ]/g, 'さ')
+                    .replace(/[だぢづっでど]/g, 'た')
+                    .replace(/[ばびぶべぼ]/g, 'は')
+                    .replace(/[ぱぴぷぺぽ]/g, 'は')
+                    .replace(/[ゃゅょ]/g, 'や');
+            };
+            // lastLineText の最初の文字が gojuon に含まれる位置
+            const lastLineIndex = gojuon.indexOf(convertToBaseSound(lastLineText[0]));
+            // key の最初の文字が gojuon に含まれる位置
+            const keyIndex = gojuon.indexOf(convertToBaseSound(key[0]));
+            if (keyIndex > lastLineIndex) {
+                alert('読み名が最下位項目より下です。');
+                return;
+            }
+            let inserted = false;
+            for (let i = 0; i < lines.length; i++) {
+                // 全角括弧内のテキストが `**` 行よりも小さい場合
+                if (lines[i].startsWith('**')) {
+                    if (lines[i].localeCompare('**' + key) > 0) {
+                        // 空白行をスキップ
+                        let j = i - 1;
+                        while (j >= 0 && lines[j].trim() === '') {
+                            j--;
+                        }
+                        // 入力された文字列を挿入
+                        lines.splice(j + 1, 0, inputValue);
+                        inserted = true;
+                        break;
+                    }
+                } else if (lines[i].startsWith('*')) {
+                    if (lines[i].localeCompare('*' + key) > 0) {
+                        // 空白行をスキップ
+                        let j = i - 1;
+                        while (j >= 0 && lines[j].trim() === '') {
+                            j--;
+                        }
+                        // 入力された文字列を挿入
+                        lines.splice(j + 1, 0, inputValue);
+                        inserted = true;
+                        break;
+                    }
+                }
+            }
+            // 上記に当てはまらない場合は最後に挿入
+            if (!inserted) {
+                const tagIndex = lines.lastIndexOf('[[女優タグ_抜粋_組合せ]]');
+                if (tagIndex !== -1 && tagIndex - 2 >= 0) {
+                    lines.splice(tagIndex - 2, 0, inputValue);
+                } else {
+                    lines.push(inputValue);
+                }
+            }
+            // テキストエリアの値を更新
+            textarea.value = lines.join('\n');
+        } else {
+            // 全角括弧内のテキストが存在しない場合は何もしない
+        }
+        // テキストエリアの値をソート
+        const originalValue = textarea.value;
+        const sortedValue = sortLinesWithTextInFullWidthParentheses(originalValue);
+        if (originalValue !== sortedValue) {
+            textarea.value = sortedValue;
+            console.log(`ソートされました`);
+        }
+        // 追加した数をカウント
+        count++;
+        countLabel.textContent = count + '人追加しました';
+        // 追加した場所へ移動
+        const index = textarea.value.indexOf(inputValue);
+        if (index !== -1) {
+            textarea.selectionEnd = index + inputValue.length;
+            textarea.focus();
+            textarea.selectionStart = index;
+            textarea.selectionEnd = index + inputValue.length;
+        }
+        // 入力欄をクリア
+        Input.value = '-';
+    });
+})();
