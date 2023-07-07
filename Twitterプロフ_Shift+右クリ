@@ -1,0 +1,104 @@
+// ==UserScript==
+// @name         Twitterプロフ_Shift+右クリ
+// @namespace    https://github.com/vrav-github/sougouwiki/
+// @version      1.0
+// @description  TwitterプロフィールをShift+右クリックで取得
+// @author       VRAV
+// @match        https://twitter.com/*
+// @grant        GM_setClipboard
+// ==/UserScript==
+
+//  　　　　　　　　　　　　　　　　　　　　　　　<<　使い方　>>
+//  Twitterプロフィールページで何もない所をShift+右クリックすると5秒ほどでクリップボードにデータを取得します。
+//  プロフィール内のリンクアドレスは短縮URLのままなので注意して下さい。
+//  レイアウトが崩れているので改行などの手直しが必要です。
+//  Twitterはスクレイピング禁止の為、ページを訪問せずに抽出するような改変をしないで下さい。
+//  当スクリプトの使用に関しては全て自己責任でお願いします。
+
+(function () {
+    'use strict';
+    // Shiftキー+右クリックで発動
+    document.addEventListener('contextmenu', function(event) {
+        if (event.shiftKey) {
+            event.preventDefault();
+            // 取得状況をポップアップ表示
+            const popup = document.createElement("div");
+            popup.style.position = "fixed";
+            popup.style.top = "50%";
+            popup.style.left = "50%";
+            popup.style.transform = "translate(-50%, -50%)";
+            popup.style.border = "none";
+            popup.style.padding = "20px";
+            popup.style.backgroundColor = "#fff";
+            popup.style.fontSize = "24px";
+            popup.style.zIndex = 9999;
+            popup.innerHTML = "取得中";
+            document.body.appendChild(popup);
+            setTimeout(() => {
+                // アドレス欄を取得
+                const title = document.title.replace('さん / Twitter', '');
+                const url = window.location.href;
+                const match = url.match(/twitter\.com\/([^\/]+)/);
+                let username;
+                if (match) {
+                    username = match[1];
+                }
+                let data = `----\n**Twitter\n[[${title}>${url}]]\n>`;
+                // プロフィール欄を取得
+                let results = [];
+                let elements = document.querySelectorAll('.css-1dbjc4n.r-1adg3ll.r-6gpygo *:not([aria-hidden="true"])');
+                let uniqueTexts = new Set();
+                elements.forEach((element) => {
+                    if (element.tagName === 'SPAN' || element.tagName === 'A') {
+                        let textContent = element.textContent;
+                        if (!uniqueTexts.has(textContent)) {
+                            results.push(textContent);
+                            uniqueTexts.add(textContent);
+                        }
+                        // ハッシュタグは除外
+                        if (element.tagName === 'A' && !element.href.includes('src=hashtag_click')) {
+                            results.push(element.href);
+                        }
+                    } else if (element.tagName === 'IMG') {
+                        results.push(element.alt);
+                    }
+                });
+                // 配列の整理
+                results.splice(1, 1);
+                results = results.filter((result) => {
+                    return result !== 'src=hashtag';
+                });
+                // 1つ目のhttps://の付加を除外
+                for (let i = 0; i < results.length - 1; i++) {
+                    if (results[i].startsWith('https://') && results[i + 1].startsWith('https://')) {
+                        results[i] = results[i].replace('https://', '');
+                    }
+                }
+                // wikiのリンク書式追加
+                for (let i = 0; i < results.length; i++) {
+                    if (results[i].startsWith('https://')) {
+                        results[i] = '>' + results[i] + ']]';
+                    }
+                }
+                for (let i = 0; i < results.length; i++) {
+                    if (results[i].startsWith('>https://')) {
+                        results[i - 1] = '[[' + results[i - 1];
+                    }
+                }
+                // 文字列に変換
+                let text = results.join('');
+                // 余計な文字列を削除
+                text = text.replace('プロフィール画像を開きます', '');
+                GM_setClipboard(data + text);
+                // 完了のポップアップを表示
+                popup.innerHTML = "Copy";
+                document.body.appendChild(popup);
+                // ポップアップを閉じる
+                setTimeout(function () {
+                    popup.remove();
+                }, 1200);
+            // 読み込み終えるまで5秒待つ
+            }, 5000);
+        }
+    });
+})();
