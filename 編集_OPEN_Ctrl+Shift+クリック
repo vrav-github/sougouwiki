@@ -1,0 +1,293 @@
+// ==UserScript==
+// @name         編集_OPEN_Ctrl+Shift+クリック
+// @namespace    https://github.com/vrav-github/sougouwiki/
+// @version      1.0
+// @description  Ctrl+Shift+クリックで編集画面を直接開く
+// @author       vrav
+// @match        http://sougouwiki.com/*
+// @grant        GM_openInTab
+// @grant        GM_xmlhttpRequest
+// ==/UserScript==
+
+//  　　　　　　　　　　　　　<<　使い方　>>
+//
+//　Ctrl+Shiftを押しながらクリックしたリンクのメイン編集画面を開きます。
+//
+//　Ctrl+Alt+クリック→アダルトサイト
+//
+//  Shift+Alt+クリック→VR作品
+//
+//  Ctrl++Shift+Alt+クリック→ページ遷移を無効化し編集画面を開きます。
+//  ([[A>B]]となっている場合は効果がありません)
+//  (リダイレクト：と記載されているページに対応します)
+//
+//  当スクリプトの使用に関しては全て自己責任でお願いします。
+
+(function () {
+    'use strict';
+    // リンクを探すセレクター
+    const linkSelector = 'a[href^="https://seesaawiki.jp/w/sougouwiki/e/edit?id="]';
+    // Ctrl+Shift+クリックされたときに実行されるコード
+    window.addEventListener('click', function (event) {
+        // altキーが押されている場合は動作しない
+        if (event.ctrlKey && event.shiftKey && !event.altKey && event.button === 0 && event.target.tagName === 'A' && event.target.href.startsWith('http://sougouwiki.com/d/')) {
+            event.preventDefault();
+            const url = event.target.href;
+            // HTMLコンテンツを取得する
+            GM_xmlhttpRequest({
+                method: "GET",
+                url: url,
+                timeout: 5000,
+                ontimeout: function() {
+                    alert('しばらく時間をおいてやり直してください。');
+                },
+                onload: function (response) {
+                    // 取得したHTMLコンテンツからリンクを探す
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(response.responseText, 'text/html');
+                    const userAreaElement = doc.querySelector('.user-area');
+                    // 誘導ページの場合
+                    if (userAreaElement && userAreaElement.textContent.includes('リダイレクト：')) {
+                        const linkElementA = doc.querySelector('a[href^="http://sougouwiki.com/d/"]');
+                        if (linkElementA) {
+                            // HTMLコンテンツを取得する
+                            GM_xmlhttpRequest({
+                                method: 'GET',
+                                url: linkElementA.href,
+                                timeout: 5000,
+                                ontimeout: function() {
+                                    alert('しばらく時間をおいてやり直してください。');
+                                },
+                                onload: function (response) {
+                                    const parser = new DOMParser();
+                                    const doc = parser.parseFromString(response.responseText, 'text/html');
+                                    const linkElementC = doc.querySelector(linkSelector);
+                                    // リンクが見つかった場合、そのリンクを新しいタブで開く
+                                    if (linkElementC) {
+                                        GM_openInTab(linkElementC.href, {
+                                            active: false
+                                        });
+                                    }
+                                }
+                            });
+                        }
+                    } else {
+                        // 通常ページの場合
+                        const linkElementB = doc.querySelector(linkSelector);
+                        if (linkElementB) {
+                            GM_openInTab(linkElementB.href, {
+                                active: false
+                            });
+                        }
+                    }
+                }
+            });
+        }
+    });
+    // Ctrl+Alt+クリックされたときに実行されるコード
+    window.addEventListener('click', function (event) {
+        // Shiftキーが押されている場合は動作しない
+        if (event.ctrlKey && event.altKey && !event.shiftKey && event.target.tagName === 'A' && event.target.href.startsWith('http://sougouwiki.com/d/')) {
+            event.preventDefault();
+            const url = event.target.href;
+            // HTMLコンテンツを取得する
+            GM_xmlhttpRequest({
+                method: "GET",
+                url: url,
+                timeout: 5000,
+                ontimeout: function() {
+                    alert('しばらく時間をおいてやり直してください。');
+                },
+                onload: function (response) {
+                    // 取得したHTMLコンテンツからリンクを探す
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(response.responseText, 'text/html');
+                    const userAreaElement = doc.querySelector('.user-area');
+                    // 誘導ページの場合
+                    if (userAreaElement && userAreaElement.textContent.includes('リダイレクト：')) {
+                        const linkElementA = doc.querySelector('a[href^="http://sougouwiki.com/d/"]');
+                        if (linkElementA) {
+                            // HTMLコンテンツを取得する
+                            GM_xmlhttpRequest({
+                                method: 'GET',
+                                url: linkElementA.href,
+                                timeout: 5000,
+                                ontimeout: function() {
+                                    alert('しばらく時間をおいてやり直してください。');
+                                },
+                                onload: function (response) {
+                                    const parser = new DOMParser();
+                                    const doc = parser.parseFromString(response.responseText, 'text/html');
+                                    const linkElementC = doc.querySelector(linkSelector);
+                                    if (linkElementC) {
+                                        const id = linkElementC.href.split('=')[1];
+                                        const tags = doc.querySelectorAll('h4[id^="content_"]');
+                                        let tag;
+                                        for (let i = 0; i < tags.length; i++) {
+                                            if (tags[i].textContent.includes("アダルトサイト")) {
+                                                tag = tags[i].id;
+                                                break;
+                                            }
+                                        }
+                                        // リンクが見つかった場合、そのリンクを新しいタブで開く
+                                        if (tag) {
+                                            GM_openInTab(linkElementC.href + '&part=' + tag, '_blank', {
+                                                active: false
+                                            });
+                                        } else {
+                                            // 見つからない場合はメインを開く
+                                            GM_openInTab(linkElementC.href, {
+                                                active: false
+                                            });
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    } else {
+                        // 通常ページの場合
+                        const linkElementB = doc.querySelector(linkSelector);
+                        if (linkElementB) {
+                            const id = linkElementB.href.split('=')[1];
+                            const tags = doc.querySelectorAll('h4[id^="content_"]');
+                            let tag;
+                            for (let i = 0; i < tags.length; i++) {
+                                if (tags[i].textContent.includes("アダルトサイト")) {
+                                    tag = tags[i].id;
+                                    break;
+                                }
+                            }
+                            // リンクが見つかった場合、そのリンクを新しいタブで開く
+                            if (tag) {
+                                GM_openInTab(linkElementB.href + '&part=' + tag, '_blank', {
+                                    active: false
+                                });
+                            } else {
+                                // 見つからない場合はメインを開く
+                                GM_openInTab(linkElementB.href, {
+                                    active: false
+                                });
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    });
+    // Shift+Alt+クリックされたときに実行されるコード
+    window.addEventListener('click', function (event) {
+        // Ctrlキーが押されている場合は動作しない
+        if (event.shiftKey && event.altKey && !event.ctrlKey && event.target.tagName === 'A' && event.target.href.startsWith('http://sougouwiki.com/d/')) {
+            event.preventDefault();
+            const url = event.target.href;
+            // HTMLコンテンツを取得する
+            GM_xmlhttpRequest({
+                method: "GET",
+                url: url,
+                timeout: 5000,
+                ontimeout: function() {
+                    alert('しばらく時間をおいてやり直してください。');
+                },
+                onload: function (response) {
+                    // 取得したHTMLコンテンツからリンクを探す
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(response.responseText, 'text/html');
+                    const userAreaElement = doc.querySelector('.user-area');
+                    // 誘導ページの場合
+                    if (userAreaElement && userAreaElement.textContent.includes('リダイレクト：')) {
+                        const linkElementA = doc.querySelector('a[href^="http://sougouwiki.com/d/"]');
+                        if (linkElementA) {
+                            // HTMLコンテンツを取得する
+                            GM_xmlhttpRequest({
+                                method: 'GET',
+                                url: linkElementA.href,
+                                timeout: 5000,
+                                ontimeout: function() {
+                                    alert('しばらく時間をおいてやり直してください。');
+                                },
+                                onload: function (response) {
+                                    const parser = new DOMParser();
+                                    const doc = parser.parseFromString(response.responseText, 'text/html');
+                                    const linkElementC = doc.querySelector(linkSelector);
+                                    if (linkElementC) {
+                                        const id = linkElementC.href.split('=')[1];
+                                        const tags = doc.querySelectorAll('h4[id^="content_"]');
+                                        let tag;
+                                        for (let i = 0; i < tags.length; i++) {
+                                            if (tags[i].textContent.includes("VR作品")) {
+                                                tag = tags[i].id;
+                                                break;
+                                            }
+                                        }
+                                        // リンクが見つかった場合、そのリンクを新しいタブで開く
+                                        if (tag) {
+                                            GM_openInTab(linkElementC.href + '&part=' + tag, '_blank', {
+                                                active: false
+                                            });
+                                        } else {
+                                            // 見つからない場合はメインを開く
+                                            GM_openInTab(linkElementC.href, {
+                                                active: false
+                                            });
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    } else {
+                        // 通常ページの場合
+                        const linkElementB = doc.querySelector(linkSelector);
+                        if (linkElementB) {
+                            const id = linkElementB.href.split('=')[1];
+                            const tags = doc.querySelectorAll('h4[id^="content_"]');
+                            let tag;
+                            for (let i = 0; i < tags.length; i++) {
+                                if (tags[i].textContent.includes("VR作品")) {
+                                    tag = tags[i].id;
+                                    break;
+                                }
+                            }
+                            // リンクが見つかった場合、そのリンクを新しいタブで開く
+                            if (tag) {
+                                GM_openInTab(linkElementB.href + '&part=' + tag, '_blank', {
+                                    active: false
+                                });
+                            } else {
+                                // 見つからない場合はメインを開く
+                                GM_openInTab(linkElementB.href, {
+                                    active: false
+                                });
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    });
+    // Ctrl+Shift+Alt+クリックされたときに実行されるコード
+    window.addEventListener('click', function (event) {
+        if (event.ctrlKey && event.shiftKey && event.altKey && event.button === 0 && event.target.tagName === 'A' && event.target.href.startsWith('http://sougouwiki.com/d/')) {
+            event.preventDefault();
+            const url = event.target.href;
+            // HTMLコンテンツを取得する
+            GM_xmlhttpRequest({
+                method: "GET",
+                url: url,
+                timeout: 5000,
+                ontimeout: function() {
+                    alert('しばらく時間をおいてやり直してください。');
+                },
+                onload: function (response) {
+                    // 取得したHTMLコンテンツからリンクを探す
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(response.responseText, 'text/html');
+                    const linkElement = doc.querySelector(linkSelector);
+                    // リンクが見つかった場合、そのリンクを新しいタブで開く
+                    if (linkElement) {
+                        window.open(linkElement.href, '_blank');
+                    }
+                }
+            });
+        }
+    });
+})();
